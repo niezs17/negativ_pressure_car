@@ -1,0 +1,273 @@
+C251 COMPILER V5.60.0,  ADC_Solve                                                          07/05/23  13:57:10  PAGE 1   
+
+
+C251 COMPILER V5.60.0, COMPILATION OF MODULE ADC_Solve
+OBJECT MODULE PLACED IN .\Out_File\ADC_Solve.obj
+COMPILER INVOKED BY: C:\Keil_v5\C251\BIN\C251.EXE ..\CODE\ADC_Solve.c XSMALL INTR2 WARNINGLEVEL(3) BROWSE INCDIR(..\..\L
+                    -ibraries\libraries;..\..\Libraries\seekfree_libraries;..\..\Libraries\seekfree_peripheral;..\CODE;..\USER\inc;..\USER\sr
+                    -c) DEBUG PRINT(.\Out_File\ADC_Solve.lst) TABS(2) OBJECT(.\Out_File\ADC_Solve.obj) 
+
+stmt  level    source
+
+    1          /**
+    2            ******************************************************************************
+    3            * @author  Pump_Li
+    4            * @version V1.0.0
+    5            * @date    2023.3.18
+    6            * @brief   adc采集滤波
+    7            ******************************************************************************
+    8            * @attention
+    9            * 
+   10            ******************************************************************************
+   11            */
+   12           /* Includes ------------------------------------------------------------------*/
+   13          #include "headfile.h"
+   14          #define FILTER_N 5 //滤波次数
+   15          uint16 adc_date[4];
+   16          float Left_Adc=0,Right_Adc=0,Left_Xie_Adc=0,Right_Xie_Adc=0;
+   17          float  adc_max[4]={3800.0,3800.0,3800.0,3800.0};               //最大值
+   18          float  adc_min[4]={0.0,0.0,0.0,0.0};               //最小值  (给定一个需要)
+   19          float Cha,He;
+   20          float temp=0;
+   21          uint8 Adc_Solve_Left_IN=0;
+   22          uint8 Adc_Solve_Right_IN=0;
+   23          uint8 Adc_Solve_Stright_Out=0;
+   24          /* Functions -----------------------------------------------------------------*/
+   25          /**
+   26            * @brief  adc初始化
+   27            * @param  None
+   28            * @retval None
+   29            */
+   30          void adc_Init_all(){
+   31   1        adc_init(Left_ADC_Pin,ADC_SYSclk_DIV_2);             //选择adc引脚，二分频，最高频率
+   32   1        adc_init(LeftXie_ADC_Pin,ADC_SYSclk_DIV_2); 
+   33   1        adc_init(RightXie_ADC_Pin,ADC_SYSclk_DIV_2); 
+   34   1        adc_init(Right_ADC_Pin,ADC_SYSclk_DIV_2); 
+   35   1      } 
+   36          
+   37          /**
+   38            * @brief  对电感采值进行冒泡排序滑动滤波
+   39            * @param  None
+   40            * @retval None
+   41            */
+   42           void ADC_Date_Fitier()
+   43          {
+   44   1         uint8 i;
+   45   1        
+   46   1        uint16 filter_buf_L[FILTER_N];  //左横电感储存数组 
+   47   1        uint16 filter_buf_LC[FILTER_N]; //左斜电感储存数组 
+   48   1        uint16 filter_buf_R[FILTER_N];  //右横电感储存数组
+   49   1        uint16 filter_buf_RC[FILTER_N];  //右斜电感储存数组
+   50   1        
+   51   1       
+   52   1      //--------滑动滤波--------------
+   53   1        for(i = 0; i <FILTER_N; i++)//采值 
+   54   1        {
+   55   2             filter_buf_L[i]  =   adc_mean_filter (Left_ADC_Pin,ADC_12BIT,5); //左横
+   56   2             filter_buf_LC[i] =   adc_mean_filter  (LeftXie_ADC_Pin,ADC_12BIT,5); //左斜     
+   57   2             filter_buf_RC[i] =  adc_mean_filter  (RightXie_ADC_Pin,ADC_12BIT,5);    //右斜   
+C251 COMPILER V5.60.0,  ADC_Solve                                                          07/05/23  13:57:10  PAGE 2   
+
+   58   2             filter_buf_R[i]  =  adc_mean_filter  (Right_ADC_Pin,ADC_12BIT,5);   //右横  
+   59   2         }
+   60   1      //--------冒泡排序去极值求平均---------
+   61   1        adc_date[0]= Final_Average_Filter(filter_buf_L);//左      3800
+   62   1        adc_date[1] =Final_Average_Filter(filter_buf_R);//右      3800
+   63   1        adc_date[2] = Final_Average_Filter(filter_buf_LC);//左斜  3800
+   64   1        adc_date[3] = Final_Average_Filter(filter_buf_RC);//右斜  3800
+   65   1      
+   66   1        normalize_date();//归一化处理
+   67   1        Adc_Element_Solve();//元素处理
+   68   1         
+   69   1      //  Left_Adc = adc_date[0];//左电感最终值
+   70   1      //  Right_Adc = adc_date[1];//右电感最终值 
+   71   1      //  Left_Xie_Adc = adc_date[2];//左斜电感最终值 
+   72   1      //  Right_Xie_Adc = adc_date[3];//右斜电感最终值
+   73   1      
+   74   1      
+   75   1       
+   76   1      
+   77   1      }
+   78          /**
+   79            * @brief  对电感采值去最大值最小值取平均
+   80            * @param  None
+   81            * @retval None
+   82            */
+   83          uint16 Final_Average_Filter(uint16 *Date)
+   84          {
+   85   1        uint8 i;
+   86   1        uint16 max,min;
+   87   1        uint16 sum=0;
+   88   1        
+   89   1        max = Date[0];
+   90   1        min = Date[0];
+   91   1        
+   92   1        for(i=0;i<5;i++)
+   93   1        {
+   94   2             if(max<Date[i]) max = Date[i];
+   95   2             if(min>Date[i]) min = Date[i];
+   96   2             sum += Date[i];
+   97   2        }       
+   98   1        sum = (sum-max-min)/(5-2);
+   99   1        return sum;
+  100   1      }
+  101          /**
+  102            * @brief  归一化处理,结算值结果在0~1000
+  103            * @param  None
+  104            * @retval None
+  105            */
+  106          void normalize_date()
+  107          {
+  108   1        float temp_Date[4];
+  109   1        uint16 i;
+  110   1        for(i=0;i<4;i++)
+  111   1        {
+  112   2      //    if(adc_date[i]<adc_min[i])
+  113   2      //    {
+  114   2      //      adc_min[i]=adc_date[i];
+  115   2      //    }
+  116   2      //   else if(adc_date[i]>adc_max[i])
+  117   2      //   {  
+  118   2      //   adc_max[i]=adc_date[i];
+  119   2      //   } 
+  120   2           temp_Date[i] = (adc_date[i]-adc_min[i])/(adc_max[i]-adc_min[i])*500;
+  121   2          if (temp_Date[i]<0)
+  122   2          {
+  123   3            temp_Date[i]=0.0;
+C251 COMPILER V5.60.0,  ADC_Solve                                                          07/05/23  13:57:10  PAGE 3   
+
+  124   3          }
+  125   2            else if(temp_Date[i]>500.0)
+  126   2            {
+  127   3            temp_Date[i]=500.0;
+  128   3            }
+  129   2            }
+  130   1        Left_Adc = temp_Date[0];//左电感最终值
+  131   1        Right_Adc = temp_Date[1];//右电感最终值 
+  132   1        Left_Xie_Adc = temp_Date[2];//左斜电感最终值
+  133   1        Right_Xie_Adc = temp_Date[3];//右斜电感最终值
+  134   1      }
+  135          
+  136          ///*****************差比和差***********************
+  137          //函数： int16 Cha_BI_He_Cha(uint16 Date_1,uint16 Date_2,uint16 Date_3,uint16 Date_4,float a,float b,uint
+             -16 X)
+  138          //参数：  float Date_1--左横电感  float Date_2--右横电感 
+  139          //        float Date_3--左斜电感  float Date_4--右斜电感 
+  140          //        float a--横电感加权系数  float b-- 斜电感加权系数   int16 X--左移位数
+  141          //说明：  无
+  142          //返回值：Resault
+  143          //日期：2022-3-28
+  144          //最后修改时间：2022-3-28
+  145          //作者：       */
+  146          //int16 Cha_BI_He_Cha(uint16 Date_1,uint16 Date_2,uint16 Date_3,uint16 Date_4,float a,float b,uint16 X)
+  147          //{
+  148          //  int16 Resault;
+  149          //  int16 FengZ,FengM;
+  150          //  Cha_H =  (int16)((Date_1 - Date_2));   //横电感差
+  151          //  Cha_X =  (int16)((Date_3 - Date_4));   //斜电感差
+  152          //  
+  153          //  He =   Date_1 + Date_2;   //横电感和
+  154          //  Sum = Date_1 + Date_2 + Date_3 + Date_4;  //所有电感之和
+  155          //  He_X = Date_3 + Date_4; //斜电感和
+  156          //  
+  157          //  FengZ = a*Cha_H+b*Cha_X;  
+  158          //  FengM = a*He+b*myabs(Cha_X);
+  159          //  Resault = ((FengZ<<X)/(FengM+1)); //差比和差
+  160          //  return   Resault;
+  161          //}
+  162          
+  163          
+  164          //////////去除极值求平均
+  165          //int16 I_Median_Average_Filter(int16 *DATE)
+  166          //{
+  167          //    uint8 i;
+  168          //    int16 max,min;  //定义极值以及和
+  169          //    int16 sum = 0;
+  170          
+  171          //    max = DATE[0];
+  172          //    min = DATE[0];
+  173          
+  174          //    for(i=0;i<sizeof(DATE);i++)
+  175          //    {
+  176          //        if(max<DATE[i]) max = DATE[i];
+  177          //        if(min>DATE[i]) min = DATE[i];
+  178          //        sum += DATE[i];
+  179          //    }
+  180          
+  181          //    sum =(sum-max-min)/(sizeof(DATE)-2);    //>>3
+  182          //    return sum;
+  183          //}
+  184          /*****************差比和***********************
+  185          函数： float Cha_BI_He(float Date_1,float Date_2,int16 X)
+  186          参数：  float Date_1--第一个数据  float Date_2--第二个数据  int16 X--左移位数
+  187          说明：  无
+  188          返回值：无
+C251 COMPILER V5.60.0,  ADC_Solve                                                          07/05/23  13:57:10  PAGE 4   
+
+  189          日期：2022-3-19
+  190          最后修改时间：2022-3-19
+  191          作者：      */
+  192          float Cha_BI_He(float Date_1,float Date_2)
+  193          {
+  194   1        float Resault;
+  195   1        Cha =  (Date_1 - Date_2);   //差
+  196   1        He =   Date_1 + Date_2;   //和
+  197   1        //Resault = (Cha<<X/(He+1)) ; //差比和
+  198   1        Resault = Cha / (He+1);
+  199   1      
+  200   1      
+  201   1        return   Resault;
+  202   1      }
+  203          
+  204          /**
+  205            * @brief  adc元素处理，强行修改循迹两电感差值，强行打角
+  206            * @param  None
+  207            * @retval None
+  208            */
+  209          void Adc_Element_Solve()
+  210          {
+  211   1        switch(Adc_Solve_annulus){          //环岛
+  212   2          case 1:                           //左环强行打角进入
+  213   2              Left_Xie_Adc = 140;
+  214   2              Right_Xie_Adc =40;        
+  215   2             break;
+  216   2          case 2:                           //右环强行打角进入
+  217   2              Left_Xie_Adc = 40;
+  218   2              Right_Xie_Adc =140;
+  219   2          break;
+  220   2          case 3:
+  221   2              Left_Xie_Adc =Left_Adc;
+  222   2              Right_Xie_Adc = Right_Adc;
+  223   2          break;
+  224   2          case 4:                           //出环岛强行直线
+  225   2              Left_Xie_Adc = Right_Xie_Adc;  
+  226   2          break;
+  227   2          default:
+  228   2           break; 
+  229   2        
+  230   2        }
+  231   1      }
+
+
+Module Information          Static   Overlayable
+------------------------------------------------
+  code size            =       509     ------
+  ecode size           =    ------     ------
+  data size            =    ------     ------
+  idata size           =    ------     ------
+  pdata size           =    ------     ------
+  xdata size           =    ------     ------
+  xdata-const size     =    ------     ------
+  edata size           =        71         56
+  bit size             =    ------     ------
+  ebit size            =    ------     ------
+  bitaddressable size  =    ------     ------
+  ebitaddressable size =    ------     ------
+  far data size        =    ------     ------
+  huge data size       =    ------     ------
+  const size           =    ------     ------
+  hconst size          =        95     ------
+End of Module Information.
+
+
+C251 COMPILATION COMPLETE.  0 WARNING(S),  0 ERROR(S)

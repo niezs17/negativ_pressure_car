@@ -1,0 +1,200 @@
+C251 COMPILER V5.60.0,  control                                                            07/05/23  13:57:08  PAGE 1   
+
+
+C251 COMPILER V5.60.0, COMPILATION OF MODULE control
+OBJECT MODULE PLACED IN .\Out_File\control.obj
+COMPILER INVOKED BY: C:\Keil_v5\C251\BIN\C251.EXE ..\CODE\control.c XSMALL INTR2 WARNINGLEVEL(3) BROWSE INCDIR(..\..\Lib
+                    -raries\libraries;..\..\Libraries\seekfree_libraries;..\..\Libraries\seekfree_peripheral;..\CODE;..\USER\inc;..\USER\src)
+                    - DEBUG PRINT(.\Out_File\control.lst) TABS(2) OBJECT(.\Out_File\control.obj) 
+
+stmt  level    source
+
+    1          /**
+    2            ******************************************************************************
+    3            * @author  Pump_Li
+    4            * @version V1.0.0
+    5            * @date    2023.3.27
+    6            * @brief   差速串级pid控制
+    7            ******************************************************************************
+    8            * @attention
+    9            * 
+   10            ******************************************************************************
+   11            */
+   12           /* Includes ------------------------------------------------------------------*/
+   13          #include "headfile.h"
+   14          /* Private Define ------------------------------------------------------------*/
+   15          float speed_output=0;
+   16          float Position_Get,Position_pre_Get,Position_Temp,Position_XIE_Temp;
+   17          uint8 COUNTS=0;     //内外环计数器
+   18          float target_vel_z=0;  //目标角度
+   19          float target_vel_z_pre=0;
+   20          float my_gyro_z;
+   21          float ZX_kp=0.0;    //转向环PID（内环）
+   22          float ZX_ki=0.0;//float ZX_ki=0.0032;
+   23          float ZX_kd=0;
+   24          float Kp_angel_out;//float Kp_angel_out=90;
+   25          float Ki_angel_out=0;
+   26          float Kd_angel_out=10;       //外环pid
+   27          float price_Velocite=0;  //转向输出差速
+   28          uint8 stop_flag=0;
+   29          uint8 fan_start_flag=0; //负压开启标志
+   30          /* Private Functions ---------------------------------------------------------*/
+   31          
+   32          /* Functions -----------------------------------------------------------------*/
+   33          /**
+   34            * @brief  电机差速控制
+   35            * @param  float speed
+   36            * @retval None
+   37            */
+   38          void motor_speed(float speed)
+   39          {
+   40   1      //  left_motor_pid(speed+price_Velocite);
+   41   1      //  right_motor_pid(speed-price_Velocite);
+   42   1        left_motor_pid(speed);
+   43   1        right_motor_pid(speed);
+   44   1      }
+   45          /**
+   46            * @brief  速度输出，反二次型
+   47            * @param  float a,b
+   48            * @retval None
+   49            */
+   50          void set_speed_target(float a,float b)
+   51          {
+   52   1        Position_Get = Cha_BI_He(Left_Xie_Adc,Right_Xie_Adc);
+   53   1      //  Position_Temp = Cha_BI_He(Left_Adc,Right_Adc);
+   54   1      //  Position_XIE_Temp = Cha_BI_He(Left_Xie_Adc,Right_Xie_Adc);
+   55   1      //  Position_Get = (1-abs_adc(Position_Temp))*Position_Temp + abs_adc(Position_Temp)*Position_XIE_Temp;
+   56   1       // if(flag_obstacle=1)Position_Get = Position_TOF;//路障
+   57   1        speed_output = -a*Position_Get*Position_Get + b;
+C251 COMPILER V5.60.0,  control                                                            07/05/23  13:57:08  PAGE 2   
+
+   58   1      
+   59   1        Kp_angel_out = 400*Position_Get*Position_Get + 200;//70,20
+   60   1      
+   61   1          //Kp_angel_out =  1000*Position_Get*Position_Get + 120;//70,20
+   62   1        K_diff =0.5*target_vel_z*0.2*(2*3.1415926/360);
+   63   1        if(K_diff<=speed_output && K_diff>=(-speed_output))K_diff = K_diff;
+*** WARNING C138 IN LINE 63 OF ..\CODE\control.c: expression with possibly no effect
+   64   1        else if (K_diff>speed_output)K_diff=speed_output;
+   65   1        else if (K_diff<(-speed_output))K_diff=(-speed_output);
+   66   1        motor_speed(speed_output);
+   67   1      }
+   68          /**
+   69            * @brief  None
+   70            * @param  None
+   71            * @retval None
+   72            */
+   73          void DifferControl(){
+   74   1      //转向外环50ms,转向内环10ms
+   75   1        //三次内环，执行一次内环
+   76   1      //  if(COUNTS==5){
+   77   1      //    COUNTS=0;
+   78   1          DerectError_Get();
+   79   1      //  }
+   80   1      //  COUNTS++;
+   81   1        my_gyro_z = imu660ra_gyro_transition(imu660ra_gyro_z);
+   82   1        if(my_gyro_z<0.5 && my_gyro_z>(-0.5))
+   83   1          my_gyro_z = 0;    //陀螺仪死区
+   84   1        //target_vel_z=target_vel_z_pre+(target_vel_z-target_vel_z_pre)*COUNTS/5;
+   85   1        //Direction_out();
+   86   1      }
+   87          
+   88          void DerectError_Get(void)  //外环
+   89          { 
+   90   1          //target_vel_z=Kp_angel_out*Position_Get+Kd_angel_out*(Position_Get-Position_pre_Get);
+   91   1          target_vel_z=Kp_angel_out*Position_Get+my_gyro_z;//陀螺仪
+   92   1         //target_vel_z=20; //开启这句话，表转向环只有内环，外环输出为0
+   93   1           Position_pre_Get=Position_Get;
+   94   1           target_vel_z_pre=target_vel_z;
+   95   1      }
+   96          
+   97          /**
+   98            * @brief  角速度内环，串级
+   99            * @param  None
+  100            * @retval None
+  101            */
+  102          void Direction_out(void)
+  103          {
+  104   1        float error;
+  105   1        static  float last_error;
+  106   1        float price_Differention;
+  107   1        float price_Intergration;
+  108   1        float price_Proportion;
+  109   1        static float Pre1_Error[4];
+  110   1        float Direct_Parameter;
+  111   1        static float sum;
+  112   1        /*直线环，如果左摇右摆调内环KP、KD*/
+  113   1        error = target_vel_z-my_gyro_z;  
+  114   1        //转向PID控制
+  115   1        sum = error++;
+  116   1        price_Proportion=ZX_kp * error;
+  117   1        price_Intergration=ZX_ki * sum;
+  118   1        price_Differention= ZX_kd* (error - last_error);
+  119   1        
+  120   1        Direct_Parameter =price_Proportion  + price_Differention + price_Intergration;
+  121   1        
+  122   1        last_error =  error; 
+C251 COMPILER V5.60.0,  control                                                            07/05/23  13:57:08  PAGE 3   
+
+  123   1        Pre1_Error[3]=Pre1_Error[2];
+  124   1        Pre1_Error[2]=Pre1_Error[1];
+  125   1        Pre1_Error[1]=Pre1_Error[0];
+  126   1        Pre1_Error[0]=Direct_Parameter;
+  127   1        Direct_Parameter=Pre1_Error[0]*0.8+Pre1_Error[1]*0.1+Pre1_Error[2]*0.06+Pre1_Error[3]*0.04 ;
+  128   1        price_Velocite= - Direct_Parameter;
+  129   1        //转向差速速度限制幅度
+  130   1       if(price_Velocite>=1) price_Velocite=1;
+  131   1        if(price_Velocite<=-1) price_Velocite=-1;
+  132   1       
+  133   1      }
+  134          /**
+  135            * @brief  开启负压
+  136            * @param  None
+  137            * @retval None
+  138            */
+  139          void fan_start()
+  140          {
+  141   1            pwm_duty(PWMB_CH3_P33,700);
+  142   1            pwm_duty(PWMB_CH4_P77,700);
+  143   1      }
+  144          /**
+  145            * @brief  出赛道保护关闭总中断
+  146            * @param  None
+  147            * @retval None
+  148            */
+  149          void Out_protect(void)
+  150          {
+  151   1        if(Left_Adc<10&&Right_Adc<10)
+  152   1        {
+  153   2          DisableGlobalIRQ();//关闭总中断
+  154   2          motor_speed(0);
+  155   2        }
+  156   1        else
+  157   1        {
+  158   2          EnableGlobalIRQ();
+  159   2        }
+  160   1      }
+
+
+Module Information          Static   Overlayable
+------------------------------------------------
+  code size            =       573     ------
+  ecode size           =    ------     ------
+  data size            =    ------     ------
+  idata size           =    ------     ------
+  pdata size           =    ------     ------
+  xdata size           =    ------     ------
+  xdata-const size     =    ------     ------
+  edata size           =        87          4
+  bit size             =    ------     ------
+  ebit size            =    ------     ------
+  bitaddressable size  =    ------     ------
+  ebitaddressable size =    ------     ------
+  far data size        =    ------     ------
+  huge data size       =    ------     ------
+  const size           =    ------     ------
+  hconst size          =        87     ------
+End of Module Information.
+
+
+C251 COMPILATION COMPLETE.  1 WARNING(S),  0 ERROR(S)

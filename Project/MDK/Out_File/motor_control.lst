@@ -1,0 +1,238 @@
+C251 COMPILER V5.60.0,  motor_control                                                      07/05/23  17:31:00  PAGE 1   
+
+
+C251 COMPILER V5.60.0, COMPILATION OF MODULE motor_control
+OBJECT MODULE PLACED IN .\Out_File\motor_control.obj
+COMPILER INVOKED BY: C:\Keil_v5\C251\BIN\C251.EXE ..\CODE\motor_control.c XSMALL INTR2 WARNINGLEVEL(3) BROWSE INCDIR(..\
+                    -..\Libraries\libraries;..\..\Libraries\seekfree_libraries;..\..\Libraries\seekfree_peripheral;..\CODE;..\USER\inc;..\USE
+                    -R\src) DEBUG PRINT(.\Out_File\motor_control.lst) TABS(2) OBJECT(.\Out_File\motor_control.obj) 
+
+stmt  level    source
+
+    1          /**
+    2            ******************************************************************************
+    3            * @author  Pump_Li
+    4            * @version V1.0.0
+    5            * @date    2023.3.13
+    6            * @brief    电机控制
+    7            ******************************************************************************
+    8            * @attention
+    9            * 
+   10            ******************************************************************************
+   11            */
+   12           /* Includes ------------------------------------------------------------------*/
+   13          #include "headfile.h"
+   14          
+   15          /* Private Define ------------------------------------------------------------*/
+   16          int16 Left_Encoder = 0;     //左编码器的值
+   17          int16 Right_Encoder = 0;    //右编码器的值
+   18          //int16 Average_Encoder = 0;  //左右编码器平均值
+   19          //int16 Sum_Encoder = 0;      //编码器脉冲和
+   20          //int32 distance = 0;         //车子行走的路程
+   21          
+   22          //int16 K_diff = 0 ;          //差速系数
+   23          
+   24          
+   25          
+   26          float K_P_L = 1000;
+   27          float K_I_L = 10;
+   28          float K_D_L = 0;
+   29          float K_P_R = 1000;
+   30          float K_I_R = 10;
+   31          float K_D_R = 0;
+   32          int16 Right_Duty=0;
+   33          int16 Left_Duty=0;
+   34          int16 pid_Delta_L,pid_Delta_R;
+   35          float right_wheel_goal;
+   36          float left_wheel_goal;
+   37          
+   38          
+   39          #define WHEEL_R 32.5       //单位mm
+   40          #define WHEEL_POSITION 2*WHELL_R      //
+   41          #define ENCODER_POSITON 
+   42          #define ENCODER_SPEED
+   43          
+   44          /* Private Functions ---------------------------------------------------------*/
+   45          /* Functions -----------------------------------------------------------------*/
+   46          /**
+   47            * @brief  左轮速度pid
+   48            * @param  goal
+   49            * @retval None
+   50            */
+   51          void left_motor_pid(float goal)
+   52          {
+   53   1        static float error_L=0,last_error_L=0,last_last_error_L=0,Goal_speed_L,error_sum_L;
+   54   1        Goal_speed_L = (float)(goal-K_diff);
+   55   1        left_wheel_goal= Goal_speed_L;
+   56   1        
+   57   1      //  if(Goal_speed<2*goal)
+C251 COMPILER V5.60.0,  motor_control                                                      07/05/23  17:31:00  PAGE 2   
+
+   58   1      //    Goal_speed = Goal_speed;
+   59   1      //  else Goal_speed = 2*goal;  //两轮差速限幅
+   60   1        
+   61   1        error_L = Goal_speed_L - 0.0017f*10*Left_Encoder;            //V = N/1024*（30/68*20.1/100*20*10） = N*0
+             -.0017*10 m/s  30为编码器齿轮，68为传动齿轮，20.1为轮子周长，控制周期50ms
+   62   1        if(error_L<-0.5)error_L=-0.5;
+   63   1        //error_sum_L += error_L;
+   64   1        pid_Delta_L =(int16)(K_P_L*(error_L-last_error_L)+K_I_L*error_L+K_D_L*(error_L-2*last_error_L+last_last
+             -_error_L));
+   65   1        Left_Duty += pid_Delta_L;
+   66   1        
+   67   1        last_error_L = error_L;
+   68   1        last_last_error_L = last_error_L;
+   69   1        
+   70   1      //  Left_Duty -=  position*0.1;
+   71   1        Left_Duty = (Left_Duty>4000) ? 4000:Left_Duty;
+   72   1        Left_Duty = (Left_Duty<=(-4000)) ? (-4000):Left_Duty;
+   73   1        
+   74   1        
+   75   1        Moto_L(Left_Duty);
+   76   1        
+   77   1      } 
+   78          /**
+   79            * @brief  右轮速度pid
+   80            * @param  goal
+   81            * @retval None
+   82            */
+   83          void right_motor_pid(float goal)
+   84          {
+   85   1        static float error_R=0,last_error_R=0,last_last_error_R=0,Goal_speed_R,error_sum_R;
+   86   1        Goal_speed_R = (float)(goal+K_diff);
+   87   1        right_wheel_goal = Goal_speed_R;
+   88   1      //  
+   89   1      //  if (Goal_speed_R<2*goal)
+   90   1      //    Goal_speed_R = Goal_speed_R;
+   91   1      //  else Goal_speed_R = 2*goal;
+   92   1      //  
+   93   1        error_R = Goal_speed_R -0.0017f*10* Right_Encoder;
+   94   1        if(error_R<-0.5)error_R=-0.5;
+   95   1        error_sum_R += error_R;
+   96   1        pid_Delta_R=(int16)(K_P_R*(error_R-last_error_R)+K_I_R*error_R+K_D_R*(error_R-2*last_error_R+last_last_e
+             -rror_R));
+   97   1        Right_Duty += pid_Delta_R;
+   98   1        
+   99   1        last_error_R = error_R;
+  100   1        last_last_error_R = last_error_R;
+  101   1        
+  102   1      //  Right_Duty +=  position*0.1;
+  103   1        
+  104   1        Right_Duty = (Right_Duty>4000) ? 4000:Right_Duty;
+  105   1        Right_Duty = (Right_Duty<=(-4000)) ? (-4000):Right_Duty;
+  106   1        Moto_R(Right_Duty);
+  107   1        
+  108   1      } 
+  109          
+  110          /**
+  111            * @brief  电机外设初始化
+  112            * @param  None
+  113            * @retval None
+  114            */
+  115          void motor_init(void)
+  116          {
+  117   1          pwm_init(PWM_R, 17000, 0); //初始化PWM1  使用P60引脚  初始化频率为17Khz
+  118   1          pwm_init(PWM_L, 17000, 0); //初始化PWM2  使用P62引脚  初始化频率为17Khz
+  119   1        
+  120   1          gpio_mode(P6_4, GPO_PP);    //推挽输出
+C251 COMPILER V5.60.0,  motor_control                                                      07/05/23  17:31:00  PAGE 3   
+
+  121   1          gpio_mode(P6_0, GPO_PP);    //
+  122   1      
+  123   1        //编码器初始化
+  124   1         ctimer_count_init(SPEEDL_PLUSE); //初始化定时器0作为外部计数
+  125   1         ctimer_count_init(SPEEDR_PLUSE); //初始化定时器3作为外部计数
+  126   1      }
+  127          
+  128          
+  129          /**
+  130            * @brief  获取编码器的值，编码器初始化
+  131            * @param  None
+  132            * @retval None
+  133            */
+  134          void Get_Encoder(void)
+  135          {
+  136   1      //读取采集到的编码器脉冲数
+  137   1           Left_Encoder = ctimer_count_read(SPEEDL_PLUSE);
+  138   1           Right_Encoder = ctimer_count_read(SPEEDR_PLUSE);
+  139   1        
+  140   1      //计数器清零
+  141   1          ctimer_count_clean(SPEEDL_PLUSE);
+  142   1          ctimer_count_clean(SPEEDR_PLUSE);
+  143   1      
+  144   1      //采集方向信息
+  145   1          if(1 == SPEEDL_DIR)
+  146   1            Left_Encoder =  Left_Encoder;
+*** WARNING C138 IN LINE 146 OF ..\CODE\motor_control.c: expression with possibly no effect
+  147   1            else
+  148   1            Left_Encoder = -Left_Encoder;
+  149   1          if(1 == SPEEDR_DIR)
+  150   1            Right_Encoder =-Right_Encoder;
+  151   1          else
+  152   1            Right_Encoder = Right_Encoder;
+*** WARNING C138 IN LINE 152 OF ..\CODE\motor_control.c: expression with possibly no effect
+  153   1        
+  154   1      //   Average_Encoder = (Left_Encoder + Right_Encoder)*0.5;
+  155   1      //   distance += (Average_Encoder * 0.07);  //转化为距离  distance=600<——>距离1米
+  156   1        
+  157   1      }
+  158          /**
+  159            * @brief  左轮控制
+  160            * @param  motor1占空比
+  161            * @retval None
+  162            */
+  163          void Moto_L(int16 moto1)
+  164          {
+  165   1        if(moto1!=0)
+  166   1          {
+  167   2            if(moto1<0)       AIN_L=1;
+  168   2            else                AIN_L=0;
+  169   2          }
+  170   1          pwm_duty(PWM_L,myabs(moto1));
+  171   1      }
+  172          /**
+  173            * @brief  右轮控制
+  174            * @param  右轮输出占空比
+  175            * @retval None
+  176            */
+  177          void Moto_R(int16 moto2)
+  178          {
+  179   1        if(moto2!=0)
+  180   1          {
+  181   2            if(moto2<0)  AIN_R=1;
+  182   2            else         AIN_R=0;
+  183   2          }
+  184   1          pwm_duty(PWM_R,myabs(moto2));
+C251 COMPILER V5.60.0,  motor_control                                                      07/05/23  17:31:00  PAGE 4   
+
+  185   1          
+  186   1      }
+  187          
+  188          void set_pwm(int16 moto1,int16 moto2)
+  189          {
+  190   1        Moto_L(moto1);
+  191   1        Moto_R(moto2);
+  192   1      }
+
+
+Module Information          Static   Overlayable
+------------------------------------------------
+  code size            =       653     ------
+  ecode size           =    ------     ------
+  data size            =    ------     ------
+  idata size           =    ------     ------
+  pdata size           =    ------     ------
+  xdata size           =    ------     ------
+  xdata-const size     =    ------     ------
+  edata size           =        84     ------
+  bit size             =    ------     ------
+  ebit size            =    ------     ------
+  bitaddressable size  =    ------     ------
+  ebitaddressable size =    ------     ------
+  far data size        =    ------     ------
+  huge data size       =    ------     ------
+  const size           =    ------     ------
+  hconst size          =       120     ------
+End of Module Information.
+
+
+C251 COMPILATION COMPLETE.  2 WARNING(S),  0 ERROR(S)

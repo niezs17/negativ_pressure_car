@@ -1,0 +1,181 @@
+C251 COMPILER V5.60.0,  servo_control                                                      07/05/23  13:57:09  PAGE 1   
+
+
+C251 COMPILER V5.60.0, COMPILATION OF MODULE servo_control
+OBJECT MODULE PLACED IN .\Out_File\servo_control.obj
+COMPILER INVOKED BY: C:\Keil_v5\C251\BIN\C251.EXE ..\CODE\servo_control.c XSMALL INTR2 WARNINGLEVEL(3) BROWSE INCDIR(..\
+                    -..\Libraries\libraries;..\..\Libraries\seekfree_libraries;..\..\Libraries\seekfree_peripheral;..\CODE;..\USER\inc;..\USE
+                    -R\src) DEBUG PRINT(.\Out_File\servo_control.lst) TABS(2) OBJECT(.\Out_File\servo_control.obj) 
+
+stmt  level    source
+
+    1          /**
+    2            ******************************************************************************
+    3            * @author  Pump_Li
+    4            * @version V1.0.0
+    5            * @date    2023.3.13
+    6            * @brief   舵机打角PID控制
+    7            ******************************************************************************
+    8            * @attention
+    9            * 
+   10            ******************************************************************************
+   11            */
+   12          
+   13          /* Includes ------------------------------------------------------------------*/
+   14          #include "headfile.h"
+   15          /* Private Define ------------------------------------------------------------*/
+   16          int16 Last_error,integral,delta;  //偏差   上次偏差   积分   微分
+   17          int16 Now_duty;  //位置式pid输出
+   18          int16 angle;    //舵机占空比输出
+   19          int16 position;
+   20          float T=0.000055;
+   21          float Kp =1 ;
+   22          float Ki = 0;
+   23          float Kd = 4;
+   24          
+   25          float Kp_turn = 3;
+   26          float Ki_turn = 0;
+   27          float Kd_turn = 0;
+   28          
+   29          extern double K_diff = 0;  //过弯差速比
+   30          
+   31          /* Private Functions ---------------------------------------------------------*/
+   32          
+   33          /* Functions -----------------------------------------------------------------*/
+   34          //舵机初始化
+   35          /**
+   36            * @brief  舵机初始化回中
+   37            * @param  None
+   38            * @retval None
+   39            */
+   40          void servo_init(void)
+   41          {
+   42   1      
+   43   1        pwm_init(PWMB_CH1_P74,50,705);       //频率为50hz。占空比为7%
+   44   1      
+   45   1        gpio_mode(P7_7,GPO_PP); //蜂鸣器接口初始化
+   46   1        Buzz=0;   //拉低，防止蜂鸣器一直叫
+   47   1      //  pwm_duty(PWMB_CH1_P74,700);   //舵机归中时在while调用，中值时占空比为7.5%，这里增大了100倍  中值定为7
+             -00.限幅(620--->785).....
+   48   1      }
+   49          /**
+   50            * @brief  舵机循线PID控制
+   51            * @param  None
+   52            * @retval None
+   53            */
+   54          void servo_pid_street(float left, float right)
+   55          {
+   56   1        float error;
+C251 COMPILER V5.60.0,  servo_control                                                      07/05/23  13:57:09  PAGE 2   
+
+   57   1        error = left-right;
+   58   1      //  error = position;
+   59   1      //  if(position>40)
+   60   1      //  {
+   61   1      //    Kp =T*position*position+0.2;
+   62   1      //    Kp=Kp>0.8?0.8:Kp;
+   63   1      //  }
+   64   1      //  else
+   65   1      //  {
+   66   1      //    Kp=0.5;
+   67   1      //  }
+   68   1        integral += error;
+   69   1        delta = error - Last_error;
+   70   1        Now_duty = Kp*error + Ki*integral +Kd*delta;
+   71   1        Last_error = error;
+   72   1         
+   73   1        angle = 705 + Now_duty;
+   74   1        
+   75   1        angle = (angle > angle_max) ? angle_max:angle;    //舵机转角限幅
+   76   1        angle = (angle < angle_min) ? angle_min:angle;
+   77   1        pwm_duty(PWMB_CH1_P74, angle) ;
+   78   1        
+   79   1          //K_diff = ((15.5/39)*tan(0.18*Now_duty*DEC))+0.05;   //过弯差速比
+   80   1          //K_diff = (15.5/39)*tan(0.18*Now_duty*DEC)-0.02;   //过弯差速比
+   81   1      }
+   82          //void Steering_Control_Out(int16 duty)
+   83          //{
+   84          //     duty = Steer_Duty_Midle + duty ;//在舵机中值的基础上进行偏移
+   85          //   if (duty >= Steer_Duty_Max) duty = Steer_Duty_Max;
+   86          //   else if(duty <= Steer_Duty_Min) duty = Steer_Duty_Min;
+   87          //     pwm_duty(Steer_Pin, duty);
+   88          //}
+   89          /**
+   90            * @brief  舵机转向PID控制
+   91            * @param  None
+   92            * @retval None
+   93            */
+   94          void servo_pid_turn(float left, float right)
+   95          {
+   96   1        float error;
+   97   1        error = left-right;
+   98   1        integral += error;
+   99   1        delta = error - Last_error;
+  100   1        Now_duty = Kp_turn*error + Ki_turn*integral +Kd_turn*delta;
+  101   1        Last_error = error;
+  102   1         
+  103   1        angle = 705 + Now_duty;
+  104   1        
+  105   1        angle = (angle > angle_max) ? angle_max:angle;    //舵机转角限幅
+  106   1        angle = (angle < angle_min) ? angle_min:angle;
+  107   1        pwm_duty(PWMB_CH1_P74, angle) ;
+  108   1        
+  109   1          //K_diff = ((15.5/39)*tan(0.18*Now_duty*DEC))+0.05;   //过弯差速比
+  110   1          //K_diff = (15.5/39)*tan(0.18*Now_duty*DEC)-0.02;   //过弯差速比
+  111   1      }
+  112          /**
+  113            * @brief  舵机控制中断函数
+  114            * @param  None
+  115            * @retval None
+  116            */
+  117          void Servo_IT()
+  118          {
+  119   1        if(Left_Xie_Adc>140&&Right_Xie_Adc>140)
+  120   1        servo_pid_street(Left_Xie_Adc,Right_Xie_Adc);
+*** WARNING C95 IN LINE 120 OF ..\CODE\servo_control.c: 'servo_pid_street': too many actual parameters
+  121   1        else if(Left_Xie_Adc<140&&Right_Xie_Adc<140&&Left_Xie_Adc>10&&Right_Xie_Adc>10)
+C251 COMPILER V5.60.0,  servo_control                                                      07/05/23  13:57:09  PAGE 3   
+
+  122   1        servo_pid_turn(Left_Xie_Adc,Right_Xie_Adc);
+*** WARNING C95 IN LINE 122 OF ..\CODE\servo_control.c: 'servo_pid_turn': too many actual parameters
+  123   1      }
+  124          
+  125          /**
+  126            * @brief  出圈保护
+  127            * @param  None
+  128            * @retval None
+  129            */
+  130          void  Protect_Anticollision()
+  131          {
+  132   1        if(Left_Xie_Adc<10&&Right_Xie_Adc<10)
+  133   1        {
+  134   2          while(1)
+  135   2          {
+  136   3              motor_speed(0.0);
+  137   3          }
+  138   2          }
+  139   1      }  
+
+
+Module Information          Static   Overlayable
+------------------------------------------------
+  code size            =       550     ------
+  ecode size           =    ------     ------
+  data size            =    ------     ------
+  idata size           =    ------     ------
+  pdata size           =    ------     ------
+  xdata size           =    ------     ------
+  xdata-const size     =    ------     ------
+  edata size           =        44     ------
+  bit size             =    ------     ------
+  ebit size            =    ------     ------
+  bitaddressable size  =    ------     ------
+  ebitaddressable size =    ------     ------
+  far data size        =    ------     ------
+  huge data size       =    ------     ------
+  const size           =    ------     ------
+  hconst size          =        64     ------
+End of Module Information.
+
+
+C251 COMPILATION COMPLETE.  2 WARNING(S),  0 ERROR(S)

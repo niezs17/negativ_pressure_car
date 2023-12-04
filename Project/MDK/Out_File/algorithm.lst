@@ -1,0 +1,324 @@
+C251 COMPILER V5.60.0,  algorithm                                                          07/05/23  13:57:09  PAGE 1   
+
+
+C251 COMPILER V5.60.0, COMPILATION OF MODULE algorithm
+OBJECT MODULE PLACED IN .\Out_File\algorithm.obj
+COMPILER INVOKED BY: C:\Keil_v5\C251\BIN\C251.EXE ..\CODE\algorithm.c XSMALL INTR2 WARNINGLEVEL(3) BROWSE INCDIR(..\..\L
+                    -ibraries\libraries;..\..\Libraries\seekfree_libraries;..\..\Libraries\seekfree_peripheral;..\CODE;..\USER\inc;..\USER\sr
+                    -c) DEBUG PRINT(.\Out_File\algorithm.lst) TABS(2) OBJECT(.\Out_File\algorithm.obj) 
+
+stmt  level    source
+
+    1          /**
+    2            ******************************************************************************
+    3            * @author  Pump_Li
+    4            * @version V1.0.0
+    5            * @date    2023.3.13
+    6            * @brief   Ò»Ð©»ù±¾¿ØÖÆËã·¨
+    7            ******************************************************************************
+    8            * @attention
+    9            * 
+   10            ******************************************************************************
+   11            */
+   12          /* Includes ------------------------------------------------------------------*/
+   13          #include "headfile.h"
+   14          /* Private Define ------------------------------------------------------------*/
+   15          uint8 annulus_flag=0;           //»·µº±êÖ¾Î»
+   16          uint8 annulus_success=0;        //½ø»·³É¹¦´ÎÊý¼ÆÊý
+   17          uint8 Round_Start =0;           //Ô²»·±àÂëÆ÷¡¢ÍÓÂÝÒÇ»ý·Ö±êÖ¾Î»
+   18          uint8 Adc_Solve_annulus=0;
+   19          uint8 Left_Annulus=0;           //×ó»·µº±êÖ¾Î»
+   20          uint8 Right_Annulus=0;          //ÓÒ»·µº±êÖ¾Î»
+   21          float Annulus_Angle = 0;            //»ý·Ö³öÈ¦½Ç¶È
+   22          float Average_Encoder = 0;  //×óÓÒ±àÂëÆ÷Æ½¾ùÖµ
+   23          float Annulus_Distance = 0;         //³µ×ÓÐÐ×ßµÄÂ·³Ì
+   24          
+   25          uint16 Out_Time=0;//³ö»·ÑÓÊ±Ê±¼ä
+   26          uint32 T_annulus=0;//Èë»·Ê±¼ä
+   27          uint16 T_Clear=60;//³ö»·Çå±êÖ¾Î»µÄÊ±¼ä£¬ÒÔ·À¶þ´ÎÊ¶±ð
+   28          
+   29          uint8 flag_1=0;
+   30          uint8 flag_2=0;
+   31          uint8 flag_3=0;
+   32          uint16 flag_4=0;
+   33          
+   34          uint16 count_delay_In=0;
+   35          
+   36          
+   37          uint8 flag_obstacle=0;//Â·ÕÏ±êÖ¾Î»
+   38          uint8 temp_TOF=0;
+   39          float Position_TOF=0;
+   40          float obstacle_Current_Dir[]={
+   41                                        -0.6,-0.57,-0.54,-0.51,-0.48,-0.45,-0.42,-0.39,-0.36,-0.33,
+   42                                        -0.30,-0.27,-0.24,-0.21,-0.18,-0.15,-0.12,-0.09,-0.06,-0.03,0,
+   43                                        0.03,0.06,0.09,0.12,0.15,0.18,0.21,0.24,0.27,0.30,
+   44                                        0.33,0.36,0.39,0.42,0.45,0.48,0.51,0.54,0.57,0.6
+   45                                       };
+   46          
+   47          
+   48          /* Private Functions ---------------------------------------------------------*/
+   49          
+   50          /* Functions -----------------------------------------------------------------*/
+   51          
+   52          /**
+   53            * @brief  ¾ø¶ÔÖµº¯Êý
+   54            * @param  None
+   55            * @retval None
+   56            */
+   57          int myabs(int16 a)
+C251 COMPILER V5.60.0,  algorithm                                                          07/05/23  13:57:09  PAGE 2   
+
+   58          {        
+   59   1          int temp;
+   60   1          if(a<0)  temp=-a;  
+   61   1          else temp=a;
+   62   1          return temp;
+   63   1      }
+   64          
+   65          float abs_adc(float adc)
+   66          {
+   67   1           float temp;
+   68   1          if(adc<0)  temp=-adc;  
+   69   1          else temp=adc;
+   70   1          return temp;
+   71   1      }
+   72          
+   73          /**
+   74            * @brief  »·µºÔªËØÊ¶±ð±êÖ¾Î»£¬»·µº·ÖÎªËÄ¶Î¿ØÖÆ£¬1¡¢Ô¤²â»·µº¾àÀë»ý·Öµ½×ªÏòµã2¡¢×ªÏòµã¹Ì¶¨´ò½Ç½øÈë»·µº3¡¢
+             -»·µºÄÚ»Ö¸´Õý³£Ñ­¼£4¡¢ÍÓÂÝÒÇ»ý·Ö³ö»·µº//·Ö±ð¶ÔÓ¦annulus_flag
+   75            * @param  None
+   76            * @retval None
+   77            */
+   78          void element_annulus_detect(){
+   79   1        ////------------------Ô¤²âÔ²»·------------------1-----------------------//
+   80   1        
+   81   1        if((Left_Xie_Adc+Right_Xie_Adc)>300&&annulus_flag==0)        //×ó»·µº±êÖ¾Î»¼ì²â
+   82   1        {
+   83   2          //Buzz = 1;
+   84   2          annulus_flag=1;//»·µº±êÖ¾Î»
+   85   2          //Left_Annulus=1; //×ó»·µº±êÖ¾
+   86   2        }
+   87   1      //    if(Right_Xie_Adc>200&&Left_Xie_Adc>200&&annulus_flag==0)        //ÓÒ»·µº±êÖ¾Î»¼ì²â
+   88   1      //  {
+   89   1      //    //Buzz = 1;
+   90   1      //    annulus_flag=1;//»·µº±êÖ¾Î»
+   91   1          //Right_Annulus=1;//ÓÒ»·µº±êÖ¾
+   92   1      //  } 
+   93   1      //    if((Left_Adc-Right_Adc)>100&&(Left_Xie_Adc-Right_Xie_Adc)>0&&annulus_flag==0)        //×ó»·µº±êÖ¾Î»¼
+             -ì²â
+   94   1      //  {
+   95   1      //    //Buzz = 1;
+   96   1      //    annulus_flag=1;//»·µº±êÖ¾Î»
+   97   1      //    Left_Annulus=1; //×ó»·µº±êÖ¾
+   98   1      //  }
+   99   1      //    if((Right_Adc-Left_Adc)>100&&(Right_Xie_Adc-Left_Xie_Adc)>0&&annulus_flag==0)        //ÓÒ»·µº±êÖ¾Î»¼
+             -ì²â
+  100   1      //  {
+  101   1      //    //Buzz = 1;
+  102   1      //    annulus_flag=1;//»·µº±êÖ¾Î»
+  103   1      //    Right_Annulus=1;//ÓÒ»·µº±êÖ¾
+  104   1      //  } 
+  105   1      
+  106   1      //----------Ô²»·Èë---------------------------------2---------------------//
+  107   1      //   if(annulus_flag==1)    
+  108   1      //  {
+  109   1      //    Round_Start =1;   //±àÂëÆ÷»ý·Ö±êÖ¾Î»
+  110   1      //    flag_1=1;
+  111   1      //    if((Left_Adc>250||Right_Adc>250)&&annulus_flag==1)//&&Annulus_Distance>60
+  112   1      //    {
+  113   1      //     annulus_flag = 2; //×ßµ½Ô²»·×ªÍä´¦±êÖ¾Î»£¬ÔÚ´Ë´¦´ò½Ç
+  114   1      //    }
+  115   1      //  }
+  116   1           if(annulus_flag==1)    
+  117   1        {
+  118   2          Round_Start =1;   //±àÂëÆ÷¡¢ÍÓÂÝÒÇ»ý·Ö±êÖ¾Î»
+  119   2          flag_1=1;
+  120   2          count_delay_In++;
+C251 COMPILER V5.60.0,  algorithm                                                          07/05/23  13:57:09  PAGE 3   
+
+  121   2      //    if((Right_Adc>250&&Right_Xie_Adc>300&&Left_Adc<50&&Left_Xie_Adc<200||Left_Adc>250&&Left_Xie_Adc>300
+             -&&Right_Adc<50&&Right_Xie_Adc<200)&&annulus_flag==1&&count_delay_In>10)//&&Annulus_Distance>60
+  122   2      //    {
+  123   2      //     annulus_flag = 2; //×ßµ½Ô²»·×ªÍä´¦±êÖ¾Î»£¬ÔÚ´Ë´¦´ò½Ç
+  124   2      //    }
+  125   2            if(Left_Adc>500&&annulus_flag==1&&Annulus_Distance>=10&&count_delay_In>50)//&&Annulus_Distance>60
+  126   2          {
+  127   3           annulus_flag = 2; //×ßµ½Ô²»·×ªÍä´¦±êÖ¾Î»£¬ÔÚ´Ë´¦´ò½Ç
+  128   3            Left_Annulus=1; //×ó»·µº±êÖ¾
+  129   3          } 
+  130   2            if(Right_Adc>300&&annulus_flag==1&&Annulus_Distance>=10&&count_delay_In>50)//&&Annulus_Distance>60
+  131   2          {
+  132   3           annulus_flag = 2; //×ßµ½Ô²»·×ªÍä´¦±êÖ¾Î»£¬ÔÚ´Ë´¦´ò½Ç
+  133   3           Right_Annulus=1;//ÓÒ»·µº±êÖ¾
+  134   3          } 
+  135   2        }
+  136   1        if(annulus_flag==2)
+  137   1          {
+  138   2           T_annulus++;      //½øÈ¥Ê±¼ä¿ØÖÆ
+  139   2            //flag_2=1;
+  140   2                    //Èç¹û´ò½Ç¹ýÔçµÄ»°¼Ó´óT_annulusµÄÏÂÏÞ£¬Èç¹û´ò½Ç¹ý³ÙµÄ»°¾Í¼õÐ¡ÏÂÏÞ£¬»ò²ÉÓÃÍÓÂÝÒÇ¿ØÖÆ£¬³¢ÊÔÏÈÓÃÊ±¼ä¿
+             -ØÖÆ
+  141   2                  if(T_annulus>0&&T_annulus<100) //¿ØÖÆ¹Ì¶¨´ò½ÇµÄÊ±¼ä0---50
+  142   2                  {
+  143   3                   
+  144   3                              if(Left_Annulus==1)  //×ó»·
+  145   3                              {
+  146   4                                Adc_Solve_annulus=1;  //Ç¿ÐÐÏò×ó´ò½Ç×ó»·½øÈë
+  147   4                                flag_2=1;
+  148   4                               
+  149   4                              }
+  150   3                              else if(Right_Annulus==1) //ÓÒ»·
+  151   3                              {
+  152   4                                Adc_Solve_annulus=2; //Ç¿ÐÐÏòÓÒ´ò½ÇÓÒ»·½øÈë
+  153   4                                flag_2=1;
+  154   4                               
+  155   4                              }
+  156   3                  }
+  157   2      //            else if(Annulus_Distance<300)
+  158   2      //            {
+  159   2      //              annulus_flag=3;//»·µºÖÐ»Ö¸´Õý³£Ñ­¼£
+  160   2      //            }
+  161   2                  else if(T_annulus>=100)
+  162   2                  {
+  163   3                   annulus_flag=3;//»·µºÖÐ»Ö¸´Õý³£Ñ­¼£
+  164   3                  }
+  165   2                  
+  166   2          }
+  167   1      if(annulus_flag==3)
+  168   1      {
+  169   2                   Adc_Solve_annulus=3;
+  170   2                   flag_3=1;
+  171   2      }
+  172   1        
+  173   1      //---------³ö»·´¦Àí-----------------------------------3-------------------//
+  174   1        if(annulus_flag==4)
+  175   1        {
+  176   2            if (Out_Time>0&&Out_Time<50)
+  177   2            {
+  178   3            Adc_Solve_annulus=4;//Ç¿ÐÐÖ±ÏßÀë¿ª±ÜÃâÔÙ´ÎÊ¶±ð
+  179   3            annulus_flag = 0;
+  180   3              flag_4=1;
+  181   3            }
+  182   2            else if(Out_Time>=50)
+  183   2            {
+  184   3              annulus_success++;
+C251 COMPILER V5.60.0,  algorithm                                                          07/05/23  13:57:09  PAGE 4   
+
+  185   3              annulus_flag=0;
+  186   3              Round_Start=0;
+  187   3              T_annulus=0;
+  188   3              Out_Time=0;
+  189   3              Adc_Solve_annulus=0;
+  190   3              count_delay_In=0;
+  191   3              flag_1=0;
+  192   3              flag_2=0;
+  193   3              flag_3=0;
+  194   3              flag_4=0;
+  195   3              Annulus_Angle=0;
+  196   3              Annulus_Distance=0;
+  197   3            }
+  198   2        }
+  199   1         
+  200   1      /********½ø»·¹ý³Ì¶Ô±àÂëÆ÷ÍÓÂÝÒÇµÈ²âÁ¿***************************/
+  201   1        if(Round_Start ==1)
+  202   1        {
+  203   2            Annulus_Angle += my_gyro_z*0.00012480f*47.75;      //ÍÓÂÝÒÇ»ý·Ö»»Ëã³öÕæÊµ½Ç¶È
+  204   2            Average_Encoder = (Left_Encoder + Right_Encoder)*0.05;
+  205   2            Annulus_Distance += (Average_Encoder*0.08735f);  //×ª»¯Îª¾àÀë  distance=<¡ª¡ª>¾àÀë1Ã×
+  206   2            if(Annulus_Angle>=330||Annulus_Angle<=(-330))     //ÍÓÂÝÒÇÅÐ¶ÏÔ²»·
+  207   2            {
+  208   3             Round_Start =2;//ÈÆ³öÀ´ÁË
+  209   3             annulus_flag =4;//³ö»·±êÖ¾Î»
+  210   3            }
+  211   2      //    if((Left_Adc>430||Right_Adc>430)&&annulus_flag==3)
+  212   2      //    {
+  213   2      //       Round_Start =2;//ÈÆ³öÀ´ÁË
+  214   2      //       annulus_flag =4;//³ö»·±êÖ¾Î»
+  215   2      //    }
+  216   2        }
+  217   1        
+  218   1        if(Round_Start ==2)         //³ö»·µºÊ±¼ä
+  219   1         { 
+  220   2         Out_Time++;
+  221   2          //³ö»·µºÊ±¼ä
+  222   2         }
+  223   1         
+  224   1        
+  225   1            if(Out_Time>T_Clear)    //ËùÓÐ±êÖ¾Î»ÇåÁã
+  226   1         {
+  227   2              //Buzz = 0;
+  228   2              annulus_success++;
+  229   2              annulus_flag=0;
+  230   2              Round_Start =0;
+  231   2              T_annulus=0;
+  232   2              Out_Time=0;
+  233   2           Adc_Solve_annulus=0;
+  234   2           count_delay_In=0;
+  235   2                   flag_1=0;
+  236   2              flag_2=0;
+  237   2              flag_3=0;
+  238   2              flag_4=0;
+  239   2           Annulus_Angle=0;
+  240   2           Annulus_Distance=0;
+  241   2         }
+  242   1      
+  243   1      }
+  244          
+  245          
+  246          
+  247          /**
+  248            * @brief  Â·ÕÏtofÊ¶±ð
+  249            * @param  None
+  250            * @retval TOF±ÜÕÏÄ£¿é¼ì²â£¬Ê¹ÓÃÈí¼þÄ£ÄâIICÍ¨ÐÅ£¬ÀíÂÛÉÏÈÎºÎÒý½Å¶¼¿ÉÒÔÊ¹ÓÃ£¬µ«ÊÇÒª×¢Òâ²»ÄÜÒý½Å
+C251 COMPILER V5.60.0,  algorithm                                                          07/05/23  13:57:09  PAGE 5   
+
+  251                      ¸´ÓÃ¡£TOFÄ£¿éÀëÕÏ°­ÎïÔ½Ô¶ÊýÖµÔ½´ó£¬Ô½½üÊýÖµÔ½Ð¡
+  252            */
+  253          void obstacle_avoidance(void)
+  254          {
+  255   1        dl1a_get_distance();                                       //¾àÀë²âÁ¿
+  256   1        if(dl1a_finsh_flag==1&&dl1a_distance_mm<SET_DLLA_DISTANCE) //²âÁ¿¾àÀëÐ¡ÓÚÉè¶¨Öµ±êÖ¾Î»³ÉÁ¢
+  257   1        {
+  258   2          dl1a_finsh_flag=0;
+  259   2          flag_obstacle=1;
+  260   2        }
+  261   1            //±ÜÕÏÎó²î´¦Àí
+  262   1          if(flag_obstacle==1)
+  263   1          {
+  264   2               //BUZZ_ON;
+  265   2               //aim_speed=100;
+  266   2               Position_TOF = obstacle_Current_Dir[temp_TOF];
+  267   2               temp_TOF++;
+  268   2               if(temp==40)
+  269   2               {
+  270   3                 temp=0;
+  271   3                 flag_obstacle=0;
+  272   3                 //aim_speed=400;
+  273   3                 //BUZZ_OFF;
+  274   3               }
+  275   2          }
+  276   1      }
+
+
+Module Information          Static   Overlayable
+------------------------------------------------
+  code size            =       731     ------
+  ecode size           =    ------     ------
+  data size            =    ------     ------
+  idata size           =    ------     ------
+  pdata size           =    ------     ------
+  xdata size           =    ------     ------
+  xdata-const size     =    ------     ------
+  edata size           =       203     ------
+  bit size             =    ------     ------
+  ebit size            =    ------     ------
+  bitaddressable size  =    ------     ------
+  ebitaddressable size =    ------     ------
+  far data size        =    ------     ------
+  huge data size       =    ------     ------
+  const size           =    ------     ------
+  hconst size          =       287     ------
+End of Module Information.
+
+
+C251 COMPILATION COMPLETE.  0 WARNING(S),  0 ERROR(S)

@@ -1,0 +1,122 @@
+C251 COMPILER V5.60.0,  main                                                               08/05/23  14:39:47  PAGE 1   
+
+
+C251 COMPILER V5.60.0, COMPILATION OF MODULE main
+OBJECT MODULE PLACED IN .\Out_File\main.obj
+COMPILER INVOKED BY: C:\Keil_v5\C251\BIN\C251.EXE ..\USER\src\main.c XSMALL INTR2 WARNINGLEVEL(3) BROWSE INCDIR(..\..\Li
+                    -braries\libraries;..\..\Libraries\seekfree_libraries;..\..\Libraries\seekfree_peripheral;..\CODE;..\USER\inc;..\USER\src
+                    -) DEBUG PRINT(.\Out_File\main.lst) TABS(2) OBJECT(.\Out_File\main.obj) 
+
+stmt  level    source
+
+    1          /********************************************************************************************************
+             -*************
+    2           * COPYRIGHT NOTICE
+    3           * Copyright (c) 2020,逐飞科技
+    4           * All rights reserved.
+    5           * 技术讨论QQ群：一群：179029047(已满)  二群：244861897(已满)  三群：824575535
+    6           *
+    7           * 以下所有内容版权均属逐飞科技所有，未经允许不得用于商业用途，
+    8           * 欢迎各位使用并传播本程序，修改内容时必须保留逐飞科技的版权声明。
+    9           *
+   10           * @file          main
+   11           * @company       成都逐飞科技有限公司
+   12           * @author        逐飞科技(QQ790875685)
+   13           * @version       查看doc内version文件 版本说明
+   14           * @Software    MDK FOR C251 V5.60
+   15           * @Target core   STC32G12K128
+   16           * @Taobao      https://seekfree.taobao.com/
+   17           * @date          2020-12-18
+   18           ********************************************************************************************************
+             -************/
+   19          
+   20          #include "headfile.h"
+   21          
+   22          
+   23          /*
+   24           * 系统频率，可查看board.h中的 FOSC 宏定义修改。
+   25           * board.h文件中FOSC的值设置为0,则程序自动设置系统频率为33.1776MHZ
+   26           * 在board_init中,已经将P54引脚设置为复位
+   27           * 如果需要使用P54引脚,可以在board.c文件中的board_init()函数中删除SET_P54_RESRT即可
+   28           */
+   29          void main()
+   30          {
+   31   1        DisableGlobalIRQ();                                       //关闭总中断
+   32   1        board_init();     // 初始化寄存器,勿删除此句代码。
+   33   1        
+   34   1        // 此处编写用户代码(例如：外设初始化代码等)
+   35   1        //lcd_init();
+   36   1        motor_init();
+   37   1        imu660ra_init();
+   38   1        while(dl1a_init())
+   39   1        {
+   40   2          delay_ms(500);
+   41   2          printf("g:VL53L0X init try again.\r\n");
+   42   2        }
+   43   1      //  servo_init();
+   44   1        adc_Init_all();
+   45   1        //pit_timer_ms(TIM_4,1);     //定时器4  2ms中断
+   46   1         bluetooth_ch9141_init();
+   47   1        pwm_init(PWMB_CH3_P33,50,0);       //频率为50hz无刷电机初始化
+   48   1        pwm_init(PWMB_CH4_P77,50,0);       
+   49   1          if(fan_start_flag==0)   //等待无刷风扇开启
+   50   1          {
+   51   2          delay_ms(4000);
+   52   2          fan_start_flag=1;
+   53   2          }
+   54   1        pit_timer_ms(TIM_1,1);     //定时器1  5ms中断
+   55   1        EnableGlobalIRQ();                                         //初始化完毕，开启总中断
+C251 COMPILER V5.60.0,  main                                                               08/05/23  14:39:47  PAGE 2   
+
+   56   1          while(1)
+   57   1        { 
+   58   2         Handle_Barn_Out(1);     //执行出库函数后flag_start标志位置一才会进中断
+   59   2      //flag_start=1;         //平时调车直接给1，不用出库
+   60   2         if(flag_start)
+   61   2         {
+   62   3           HALL_Detect();               //干簧管停车检测
+   63   3         }
+   64   2         Handle_Barn_In(1);             //停车入库处理
+   65   2         
+   66   2         printf("g:%f,%f,%f,%f,%f,%f,%f,%f,%d,%d\r\n",Left_Encoder*0.0017f*10,Right_Encoder*0.0017f*10,Right_Ad
+             -c,Left_Adc,Left_Xie_Adc,Right_Xie_Adc,right_wheel_goal,left_wheel_goal,Right_Duty,Left_Duty);
+   67   2         //printf("g:%f,%f,%f,%f,%d,%d\r\n",Left_Encoder*0.0017f*10,Right_Encoder*0.0017f*10,pid_Delta_L,pid_De
+             -lta_R,right_wheel_goal,left_wheel_goal,Right_Duty,Left_Duty);
+   68   2          //printf("g:%d,%d,%d,%d,%d,%f,%d,%f\r\n",flag_1,flag_2,flag_3,flag_4,Out_Time,Annulus_Angle,count_del
+             -ay_In,Annulus_Distance);
+   69   2          //printf("g:%d,%d,%f\r\n",flag_4,Out_Time,Annulus_Angle);
+   70   2          //printf("%d\r\n",fan_start_flag);
+   71   2         //printf("g:%d,%d,%d\r\n",T_outku,flag_end,dl1a_distance_mm);
+   72   2      //      if(dl1a_finsh_flag)
+   73   2      //    {
+   74   2      //      printf("Range : %d.\r\n", dl1a_distance_mm);
+   75   2      //      dl1a_finsh_flag = 0;
+   76   2      //    }
+   77   2           // 此处编写需要循环执行的代码
+   78   2          }
+   79   1      }
+   80          
+
+
+Module Information          Static   Overlayable
+------------------------------------------------
+  code size            =       251     ------
+  ecode size           =    ------     ------
+  data size            =    ------     ------
+  idata size           =    ------     ------
+  pdata size           =    ------     ------
+  xdata size           =    ------     ------
+  xdata-const size     =    ------     ------
+  edata size           =    ------     ------
+  bit size             =    ------     ------
+  ebit size            =    ------     ------
+  bitaddressable size  =    ------     ------
+  ebitaddressable size =    ------     ------
+  far data size        =    ------     ------
+  huge data size       =    ------     ------
+  const size           =    ------     ------
+  hconst size          =        62     ------
+End of Module Information.
+
+
+C251 COMPILATION COMPLETE.  0 WARNING(S),  0 ERROR(S)

@@ -1,0 +1,170 @@
+C251 COMPILER V5.60.0,  motor                                                              13/03/23  19:38:38  PAGE 1   
+
+
+C251 COMPILER V5.60.0, COMPILATION OF MODULE motor
+OBJECT MODULE PLACED IN .\Out_File\motor.obj
+COMPILER INVOKED BY: C:\Keil_v5\C251\BIN\C251.EXE ..\CODE\motor.c XSMALL INTR2 WARNINGLEVEL(3) BROWSE INCDIR(..\..\Libra
+                    -ries\libraries;..\..\Libraries\seekfree_libraries;..\..\Libraries\seekfree_peripheral;..\CODE;..\USER\inc;..\USER\src) D
+                    -EBUG PRINT(.\Out_File\motor.lst) TABS(2) OBJECT(.\Out_File\motor.obj) 
+
+stmt  level    source
+
+    1          #include "headfile.h"
+    2          #include "motor.h"
+    3          
+    4          int16 Left_Encoder = 0;     //左编码器的值
+    5          int16 Right_Encoder = 0;    //右编码器的值
+    6          int16 Average_Encoder = 0;  //左右编码器平均值
+    7          int16 Sum_Encoder = 0;      //编码器脉冲和
+    8          int32 distance = 0;         //车子行走的路程
+    9          
+   10          int16 K_diff = 0 ;
+   11          //int16 Left_Encoder = 0;
+   12          
+   13          
+   14          float K_P = 70;
+   15          float K_I = 8;
+   16          float K_D = 0;
+   17          
+   18          int16 Right_Duty,Left_Duty;
+   19          
+   20          void left_motor_pid(int16 goal)
+   21          {
+   22   1        static int16 error,last_error=0,last_last_error=0,Goal_speed;
+   23   1        Goal_speed = (int16)((1-K_diff)*goal);
+   24   1      //  Goal_speed = goal;
+   25   1        error = Goal_speed - Left_Encoder;
+   26   1        Left_Duty+=K_P*(error-last_error)+K_I*error+K_D*(error-2*last_error+last_last_error);
+   27   1        
+   28   1        last_error = error;
+   29   1        last_last_error = last_error;
+   30   1        
+   31   1      //  Left_Duty -=  position*0.1;
+   32   1        Left_Duty = Left_Duty>8000 ? 8000:Left_Duty;
+   33   1        Left_Duty = Left_Duty<-3000? -3000:Left_Duty;
+   34   1        
+   35   1        
+   36   1        Moto_L(Left_Duty);
+   37   1        
+   38   1      } 
+   39          
+   40          void right_motor_pid(int16 goal)
+   41          {
+   42   1        static int16 error,last_error=0,last_last_error=0,Goal_speed;
+   43   1        Goal_speed = (1+K_diff)*goal;
+   44   1      //  Goal_speed = goal;
+   45   1        error = Goal_speed - Right_Encoder;
+   46   1        Right_Duty+=K_P*(error-last_error)+K_I*error+K_D*(error-2*last_error+last_last_error);
+   47   1        
+   48   1        
+   49   1        last_error = error;
+   50   1        last_last_error = last_error;
+   51   1        
+   52   1      //  Right_Duty +=  position*0.1;
+   53   1        
+   54   1        Right_Duty = Right_Duty>8000 ? 8000:Right_Duty;
+   55   1        Right_Duty = Right_Duty<-3000 ? -3000:Right_Duty;
+   56   1        
+   57   1        Moto_R(Right_Duty);
+C251 COMPILER V5.60.0,  motor                                                              13/03/23  19:38:38  PAGE 2   
+
+   58   1        
+   59   1      } 
+   60          
+   61          
+   62          void motor_init(void)
+   63          {
+   64   1          pwm_init(PWM_R, 10000, 0); //初始化PWM1  使用P60引脚  初始化频率为10Khz
+   65   1          pwm_init(PWM_L, 10000, 0); //初始化PWM2  使用P62引脚  初始化频率为10Khz
+   66   1        
+   67   1          gpio_mode(P6_4, GPO_PP);
+   68   1          gpio_mode(P6_0, GPO_PP);
+   69   1      
+   70   1        //编码器初始化
+   71   1         ctimer_count_init(SPEEDL_PLUSE); //初始化定时器0作为外部计数
+   72   1         ctimer_count_init(SPEEDR_PLUSE); //初始化定时器3作为外部计数
+   73   1      }
+   74          
+   75          //获取编码器的值
+   76          void Get_Encoder(void)
+   77          {
+   78   1      //读取采集到的编码器脉冲数
+   79   1           Left_Encoder = ctimer_count_read(SPEEDL_PLUSE);
+   80   1           Right_Encoder = ctimer_count_read(SPEEDR_PLUSE);
+   81   1        
+   82   1      //计数器清零
+   83   1          ctimer_count_clean(SPEEDL_PLUSE);
+   84   1          ctimer_count_clean(SPEEDR_PLUSE);
+   85   1      
+   86   1      //采集方向信息
+   87   1          if(1 == SPEEDL_DIR)    Left_Encoder = Left_Encoder;
+*** WARNING C138 IN LINE 87 OF ..\CODE\motor.c: expression with possibly no effect
+   88   1          else                   Left_Encoder = -Left_Encoder;
+   89   1          if(1 == SPEEDR_DIR)    Right_Encoder =-Right_Encoder;
+   90   1          else                   Right_Encoder = Right_Encoder;
+*** WARNING C138 IN LINE 90 OF ..\CODE\motor.c: expression with possibly no effect
+   91   1        
+   92   1         Average_Encoder = (Left_Encoder + Right_Encoder)*0.5;
+   93   1         distance += (Average_Encoder * 0.07);  //转化为距离  distance=600<——>距离1米
+   94   1        
+   95   1      }
+   96          
+   97          void Moto_L(int16 moto1)
+   98          {
+   99   1        if(moto1!=0)
+  100   1          {
+  101   2            if(moto1<0)       AIN_L=1;
+  102   2            else              AIN_L=0;
+  103   2          }
+  104   1          pwm_duty(PWM_L,myabs(moto1));
+*** WARNING C140 IN LINE 104 OF ..\CODE\motor.c: 'myabs' undefined; assuming 'extern int myabs()'
+*** WARNING C95 IN LINE 104 OF ..\CODE\motor.c: 'myabs': too many actual parameters
+  105   1      }
+  106          
+  107          void Moto_R(int16 moto2)
+  108          {
+  109   1        if(moto2!=0)
+  110   1          {
+  111   2            if(moto2<0)  AIN_R=1;
+  112   2            else         AIN_R=0;
+  113   2          }
+  114   1          pwm_duty(PWM_R,myabs(moto2));
+*** WARNING C95 IN LINE 114 OF ..\CODE\motor.c: 'myabs': too many actual parameters
+  115   1          
+  116   1      }
+  117          
+  118          void set_pwm(int16 moto1,int16 moto2)
+C251 COMPILER V5.60.0,  motor                                                              13/03/23  19:38:38  PAGE 3   
+
+  119          {
+  120   1        Moto_L(moto1);
+  121   1        Moto_R(moto2);
+  122   1      }
+  123          
+  124          
+  125          
+  126          
+
+
+Module Information          Static   Overlayable
+------------------------------------------------
+  code size            =       626     ------
+  ecode size           =    ------     ------
+  data size            =    ------     ------
+  idata size           =    ------     ------
+  pdata size           =    ------     ------
+  xdata size           =    ------     ------
+  xdata-const size     =    ------     ------
+  edata size           =        46     ------
+  bit size             =    ------     ------
+  ebit size            =    ------     ------
+  bitaddressable size  =    ------     ------
+  ebitaddressable size =    ------     ------
+  far data size        =    ------     ------
+  huge data size       =    ------     ------
+  const size           =    ------     ------
+  hconst size          =        86     ------
+End of Module Information.
+
+
+C251 COMPILATION COMPLETE.  5 WARNING(S),  0 ERROR(S)
