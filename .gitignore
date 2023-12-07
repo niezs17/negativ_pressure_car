@@ -1,6 +1,10 @@
-# usage keil files
+# usage: keil files
 
-\.vscode
-\seekfree_libraries
-\seekfree_peripheral
-\libraries
+.vscode/
+/seekfree_libraries
+/seekfree_peripheral
+/Libraries/doc
+MDK/
+
+
+
