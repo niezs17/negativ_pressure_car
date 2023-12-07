@@ -54,13 +54,4 @@
 #include "ADC_Solve.h"
 #include "park.h"
 
-
-//ADC电磁信号引脚5个电感（实际上都可以，电感，根据需求修改即可）
-#define Left_ADC_Pin      ADC_P00  
-#define LeftXie_ADC_Pin   ADC_P01
-#define RightXie_ADC_Pin  ADC_P05 
-#define Right_ADC_Pin     ADC_P06
-
-//#define Mid_ADC_Pin      ADC_P05 
-
 #endif

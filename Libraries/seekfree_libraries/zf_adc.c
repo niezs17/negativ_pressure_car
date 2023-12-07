@@ -88,7 +88,7 @@ uint16 adc_once(ADCN_enum adcn,ADCRES_enum resolution)
 }
 
 /**
-  * @brief  adc均值滤波，采集五次取怕平均值
+  * @brief  adc均值滤波，采集五次取平均值
   * @param  None
   * @retval None
   */

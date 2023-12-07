@@ -158,3 +158,36 @@ void Out_protect(void)
 		EnableGlobalIRQ();
 	}
 }
+
+
+//move from adc_slove module
+float Cha_BI_He(float data_1, float data_2)
+{
+    float Cha, He;
+    float res;
+    Cha = (data_1 - data_2);
+    He = data_1 + data_2;
+    // res = Cha << X / (He + 1);
+    res = Cha / (He + 1);
+
+    return res;
+}
+
+//move from adc_slove module
+
+//int16 Cha_BI_He_Cha(uint16 data_1,uint16 data_2,uint16 Date_3,uint16 Date_4,float a,float b,uint16 X)
+//{
+//  int16 res;
+//	int16 FengZ,FengM;
+//  Cha_H = int16)((data_1 - data_2));  
+//	Cha_X = int16)((Date_3 - Date_4));  
+//	
+//  He =   data_1 + data_2; 
+//	Sum = data_1 + data_2 + Date_3 + Date_4;  
+//	He_X = Date_3 + Date_4;
+//	
+//  FengZ = a*Cha_H+b*Cha_X;  
+//	FengM = a*He+b*myabs(Cha_X);
+//	res = ((FengZ<<X)/(FengM+1)); 
+//  return   res;
+//}

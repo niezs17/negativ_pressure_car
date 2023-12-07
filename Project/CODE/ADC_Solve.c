@@ -1,138 +1,118 @@
-// ADC�ɼ�����
-
-
 #include "headfile.h"
-#define FILTER_N 5 
-uint16 adc_date[4];
-float Left_Adc=0,Right_Adc=0,Left_Xie_Adc=0,Right_Xie_Adc=0;
-float  adc_max[4]={3800.0,3800.0,3800.0,3800.0};  
-float  adc_min[4]={0.0,0.0,0.0,0.0};              
-float Cha,He;
-float temp=0;
-uint8 Adc_Solve_Left_IN=0;
-uint8 Adc_Solve_Right_IN=0;
-uint8 Adc_Solve_Stright_Out=0;
 
 
+//  建立一个四位数组，存储4路adc的滤波结果
+uint16 adc_data[4];
+
+/*
+    定义用于电磁检测的电容信号，信号经过放大器放大后，由ADC产生
+    用到了四个分别位于，
+    upper_left_adc    --->   左上方    --->    L1(upper)   --->  引脚: 0.1 
+    upper_right_adc   --->   右上方    --->    L7(upper)   --->  引脚: 0.0
+    lower_left_adc    --->   左下方    --->    L4(lower)   --->  引脚: 0.6 
+    lower_right_adc   --->   右下方    --->    L1(lower)   --->  引脚: 0.5 
+*/
+float upper_left_adc=0;
+float upper_right_adc=0;
+float lower_left_adc=0;
+float lower_right_adc=0;
+
+/*
+    定义ADC最大，最小值
+*/
+float  adc_max[4]={3800.0,  3800.0,  3800.0, 3800.0};  
+float  adc_min[4]={   0.0,     0.0,     0.0,    0.0};  
+
+
+uint8 Adc_Solve_Left_IN        =0;
+uint8 Adc_Solve_Right_IN       =0;
+uint8 Adc_Solve_Stright_Out    =0;
+
+/*
+    初始化ADC
+*/
 void adc_Init_all(){
-  adc_init(Left_ADC_Pin,ADC_SYSclk_DIV_2);        
-  adc_init(LeftXie_ADC_Pin,ADC_SYSclk_DIV_2); 
-  adc_init(RightXie_ADC_Pin,ADC_SYSclk_DIV_2); 
-  adc_init(Right_ADC_Pin,ADC_SYSclk_DIV_2); 
+  adc_init(upper_left_adc, ADC_SYSclk_DIV_2); 
+  adc_init(upper_right_adc, ADC_SYSclk_DIV_2); 
+  adc_init(lower_left_adc, ADC_SYSclk_DIV_2);        
+  adc_init(lower_right_adc, ADC_SYSclk_DIV_2); 
 } 
 
-
- void ADC_Date_Fitier()
+//  建立一个ADC采集数据均值滤波器，大小为5个采样点，每5个点取一次平均值，作为ADC最终采集到的有效数字
+void ADC_Date_Filter()
 {
-   uint8 i;
-  
-  uint16 filter_buf_L[FILTER_N]; 
-  uint16 filter_buf_LC[FILTER_N];
-  uint16 filter_buf_R[FILTER_N]; 
-  uint16 filter_buf_RC[FILTER_N];
-  
- 
+    uint8 i;
+    uint16 filter_buf_lower_left[FILTER_N];
+    uint16 filter_buf_upper_left[FILTER_N];
+    uint16 filter_buf_lower_right[FILTER_N];
+    uint16 filter_buf_upper_right[FILTER_N];
 
-	for(i = 0; i <FILTER_N; i++)
-  {
-       filter_buf_L[i]  =   adc_mean_filterLeft_ADC_Pin,ADC_12BIT,5); //
-       filter_buf_LC[i] =   adc_mean_filter LeftXie_ADC_Pin,ADC_12BIT,5); 
-       filter_buf_RC[i] =  adc_mean_filter RightXie_ADC_Pin,ADC_12BIT,5);  
-       filter_buf_R[i]  =  adc_mean_filter Right_ADC_Pin,ADC_12BIT,5);   //
-   }
-
-  adc_date[0]= Final_Average_Filter(filter_buf_L);
-  adc_date[1] =Final_Average_Filter(filter_buf_R);
-  adc_date[2] = Final_Average_Filter(filter_buf_LC);
-  adc_date[3] = Final_Average_Filter(filter_buf_RC);
-
-	normalize_date();
-  Adc_Element_Solve();
-	 
-//  Left_Adc = adc_date[0]
-//  Right_Adc = adc_date[1];
-//  Left_Xie_Adc = adc_date[2];
-//  Right_Xie_Adc = adc_date[3];
-
-
- 
-
-
-}
-uint16 Final_Average_Filter(uint16 *Date)
-{
-  uint8 i;
-  uint16 max,min;
-  uint16 sum=0;
-  
-  max = Date[0];
-  min = Date[0];
-  
-  for(i=0;i<5;i++)
-  {
-       if(max<Date[i]) max = Date[i];
-       if(min>Date[i]min = Date[i];
-       sum += Date[i];
-  }       
-  sum = (sum-max-min)/(5-2);
-  return sum;
-}
-
-
-void normalize_date()
-{
-  float temp_Date[4];
-  uint16 i;
-  for(i=0;i<4;i++)
-  {
-//    if(adc_date[i]<adc_min[i])
-//    {
-//      adc_min[i]=adc_date[i];
-//    }
-//   else if(adc_date[i]>adc_max[i])
-//   {  
-//   adc_max[i]=adc_date[i];
-//   } 
-     temp_Date[i] = (adc_date[i]-adc_min[i])/(adc_max[i]-adc_min[i])*500;
-    if (temp_Date[i]<0)
+    //经过平均滤波器
+    for (i = 0; i < FILTER_N; i++)
     {
-      temp_Date[i]=0.0;
+        filter_buf_upper_left[i]  = adc_mean_filter(UPPER_LEFT_ADC_PIN,  ADC_12BIT, 5);
+        filter_buf_upper_right[i] = adc_mean_filter(UPPER_RIGHT_ADC_PIN, ADC_12BIT, 5);
+        filter_buf_lower_left[i]  = adc_mean_filter(LOWER_LEFT_ADC_PIN,  ADC_12BIT, 5);
+        filter_buf_lower_right[i] = adc_mean_filter(LOWER_RIGHT_ADC_PIN, ADC_12BIT, 5);
     }
-      else if(temp_Date[i]>500.0)
-      {
-      temp_Date[i]=500.0;
-      }
-      }
-  Left_Adc = temp_Date[0];
-  Right_Adc = temp_Date[1];
-  Left_Xie_Adc = temp_Date[2];
-  Right_Xie_Adc = temp_Date[3];
+
+    //存入结果数组
+    adc_data[0] = Final_Average_Filter(filter_buf_lower_left);
+    adc_data[1] = Final_Average_Filter(filter_buf_lower_right);
+    adc_data[2] = Final_Average_Filter(filter_buf_upper_left);
+    adc_data[3] = Final_Average_Filter(filter_buf_upper_right);
+
+    //归一化缓存区
+    normalize_data();
+    Adc_Element_Solve();
 }
 
+uint16 Final_Average_Filter(uint16 *data)
+{
+    uint8 i;
+    uint16 max, min;
+    uint16 sum = 0;
 
+    max = data[0];
+    min = data[0];
 
+    for (i = 0; i < 5; i++)
+    {
+        if (max < data[i])
+            max = data[i];
+        if (min > data[i])
+            min = data[i];
+        sum += data[i];
+    }
 
+    sum = (sum - max - min) / (5 - 2);
+    return sum;
+}
 
+void normalize_data()
+{
+    float temp_data[4];
+    uint16 i;
 
+    for (i = 0; i < 4; i++)
+    {
+        temp_data[i] = (adc_data[i] - adc_min[i]) / (adc_max[i] - adc_min[i]) * 500;
 
-//int16 Cha_BI_He_Cha(uint16 Date_1,uint16 Date_2,uint16 Date_3,uint16 Date_4,float a,float b,uint16 X)
-//{
-//  int16 Resault;
-//	int16 FengZ,FengM;
-//  Cha_H = int16)((Date_1 - Date_2));  
-//	Cha_X = int16)((Date_3 - Date_4));  
-//	
-//  He =   Date_1 + Date_2; 
-//	Sum = Date_1 + Date_2 + Date_3 + Date_4;  
-//	He_X = Date_3 + Date_4;
-//	
-//  FengZ = a*Cha_H+b*Cha_X;  
-//	FengM = a*He+b*myabs(Cha_X);
-//	Resault = ((FengZ<<X)/(FengM+1)); 
-//  return   Resault;
-//}
+        if (temp_data[i] < 0)
+        {
+            temp_data[i] = 0.0;
+        }
+        else if (temp_data[i] > 500.0)
+        {
+            temp_data[i] = 500.0;
+        }
+    }
 
-
+    lower_left_adc = temp_data[0];
+    lower_right_adc = temp_data[1];
+    upper_left_adc = temp_data[2];
+    upper_right_adc = temp_data[3];
+}
 
 //int16 I_Median_Average_Filter(int16 *DATE)
 //{
@@ -154,38 +134,30 @@ void normalize_date()
 //    return sum;
 //}
 
-float Cha_BI_He(float Date_1,float Date_2)
-{
-  float Resault;
-  Cha =  (Date_1 - Date_2);   
-  He =   Date_1 + Date_2;   
-  //Resault =Cha<<X/(He+1)) ; 
-  Resault = Cha / (He+1);
 
+//uint8 Adc_Solve_annulus 的定义在 algorithm.c
 
-  return   Resault;
-}
-
+//在不同情况下强制选择adc输出待控制量
 void Adc_Element_Solve()
 {
-  switch(Adc_Solve_annulus){         
-    case 1:                          
-        Left_Xie_Adc = 140;
-        Right_Xie_Adc =40;        
-       break;
-    case 2:                          
-        Left_Xie_Adc = 40;
-        Right_Xie_Adc =140;
-    break;
+    switch (Adc_Solve_annulus)
+    {
+    case 1:
+        upper_left_adc = 140;
+        upper_right_adc = 40;
+        break;
+    case 2:
+        upper_left_adc = 40;
+        upper_right_adc = 140;
+        break;
     case 3:
-        Left_Xie_Adc =Left_Adc;
-        Right_Xie_Adc = Right_Adc;
-    break;
-    case 4:                           
-        Left_Xie_Adc = Right_Xie_Adc;  
-    break;
+        upper_left_adc = lower_left_adc;
+        upper_right_adc = lower_right_adc;
+        break;
+    case 4:
+        upper_left_adc = upper_right_adc;
+        break;
     default:
-     break; 
-  
-  }
+        break;
+    }
 }

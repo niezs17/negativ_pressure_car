@@ -32,4 +32,7 @@ void DerectError_Get(void);
 void Direction_out(void);
 void fan_start();
 
+//move from adc module
+float Cha_BI_He(float data_1,float data_2);
+
 #endif
